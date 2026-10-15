@@ -4,389 +4,949 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#263c32">
-  <title>Sage & Cream | Interactive 3D Interior</title>
+  <title>Sage & Cream | 3D Room Walkthrough</title>
+
+  <!-- Fixes the "Failed to resolve module specifier three" error -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+    }
+  }
+  </script>
 
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
       overflow: hidden;
       font-family: Arial, sans-serif;
-      background: #eee9df;
-      color: #fff;
+      background: #e9e5da;
+      color: #26382f;
     }
 
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-
-    #panel {
+    #scene {
       position: fixed;
-      z-index: 10;
-      top: 16px;
-      left: 16px;
-      width: min(310px, calc(100vw - 32px));
-      padding: 20px;
-      border: 1px solid #ffffff30;
+      inset: 0;
+    }
+
+    .panel {
+      position: fixed;
+      z-index: 5;
+      top: 20px;
+      left: 20px;
+      width: min(340px, calc(100vw - 40px));
+      padding: 22px;
+      border: 1px solid rgba(255,255,255,.65);
       border-radius: 18px;
-      background: rgba(35, 55, 45, .94);
-      box-shadow: 0 10px 35px #0002;
+      background: rgba(248, 247, 240, .94);
+      box-shadow: 0 10px 40px rgba(30, 40, 30, .15);
       backdrop-filter: blur(12px);
     }
 
     .eyebrow {
-      color: #d5c8a6;
+      margin: 0 0 8px;
       font-size: 10px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
+      letter-spacing: 3px;
+      font-weight: bold;
+      color: #71816b;
     }
 
     h1 {
-      margin: 8px 0;
+      margin: 0;
       font-family: Georgia, serif;
       font-size: 27px;
-      font-weight: 400;
+      font-weight: normal;
     }
 
-    #panel p {
-      color: #e2e6dc;
+    .subtitle {
+      margin: 9px 0 18px;
+      color: #73766d;
       font-size: 12px;
-      line-height: 1.65;
+      line-height: 1.6;
     }
 
-    .buttons {
+    .dimensions {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 14px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-bottom: 18px;
+    }
+
+    .dimension {
+      padding: 10px 5px;
+      text-align: center;
+      border-radius: 9px;
+      background: #e8e9df;
+    }
+
+    .dimension strong {
+      display: block;
+      font-size: 16px;
+    }
+
+    .dimension span {
+      display: block;
+      margin-top: 4px;
+      font-size: 9px;
+      color: #72766c;
     }
 
     button {
-      padding: 11px 8px;
-      border: 1px solid #ffffff35;
-      border-radius: 8px;
-      background: #e5e9dc;
-      color: #293d31;
-      font-size: 12px;
-      font-weight: 600;
+      width: 100%;
+      margin-top: 8px;
+      padding: 12px;
+      border: 0;
+      border-radius: 9px;
       cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .primary {
+      color: white;
+      background: #667b63;
+    }
+
+    .secondary {
+      color: #3f5140;
+      background: #e4e6dc;
     }
 
     button:hover {
-      background: #fff;
+      filter: brightness(.95);
+    }
+
+    .swatches {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 18px;
+    }
+
+    .swatch {
+      width: 27px;
+      height: 27px;
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 0 0 1px #b7b9ae;
+      cursor: pointer;
+    }
+
+    .swatch.active {
+      box-shadow: 0 0 0 2px #53694f;
+    }
+
+    .swatch-label {
+      margin-left: auto;
+      font-size: 10px;
+      color: #6c7167;
+    }
+
+    .help {
+      position: fixed;
+      z-index: 4;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: calc(100vw - 30px);
+      padding: 12px 18px;
+      border-radius: 12px;
+      background: rgba(29, 39, 32, .84);
+      color: white;
+      text-align: center;
+      font-size: 11px;
+      line-height: 1.8;
     }
 
     #status {
-      margin-top: 12px;
-      color: #d6d9c9;
-      font-size: 11px;
-    }
-
-    #loading {
       position: fixed;
-      inset: 0;
-      z-index: 30;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      background: #e9e4d9;
-      color: #263c32;
-      text-align: center;
-    }
-
-    #loading.hidden {
-      display: none;
-    }
-
-    #loading h2 {
-      font-family: Georgia, serif;
-      font-size: 27px;
-      font-weight: 400;
-    }
-
-    #loading p {
-      max-width: 360px;
-      font-size: 13px;
-      line-height: 1.6;
+      z-index: 4;
+      right: 20px;
+      top: 20px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: rgba(248,247,240,.92);
+      font-size: 11px;
     }
 
     #error {
       display: none;
-      color: #9e3328;
-    }
-
-    #help {
       position: fixed;
-      right: 15px;
-      bottom: 15px;
       z-index: 10;
-      padding: 10px 14px;
+      inset: auto 12px 100px;
+      padding: 15px;
+      background: #fff0ed;
+      color: #8b2e20;
       border-radius: 10px;
-      background: #ffffffdf;
-      color: #263c32;
-      font-size: 11px;
-      line-height: 1.7;
-      box-shadow: 0 3px 15px #0001;
+      font-size: 13px;
     }
 
-    @media (max-width: 500px) {
-      #panel { padding: 14px; }
-      h1 { font-size: 22px; }
-      #panel p { margin: 7px 0; }
-      #help { max-width: 175px; }
+    @media (max-width: 600px) {
+      .panel {
+        top: 10px;
+        left: 10px;
+        width: 245px;
+        padding: 14px;
+      }
+
+      h1 {
+        font-size: 21px;
+      }
+
+      .subtitle {
+        margin: 6px 0 10px;
+      }
+
+      .dimensions {
+        margin-bottom: 10px;
+      }
+
+      .dimension {
+        padding: 7px 2px;
+      }
+
+      #status {
+        top: 10px;
+        right: 10px;
+        font-size: 9px;
+      }
+
+      .help {
+        bottom: 10px;
+        font-size: 10px;
+      }
     }
   </style>
 </head>
 
 <body>
-  <div id="loading">
-    <div>
-      <h2>Sage & Cream</h2>
-      <p id="loadingText">Preparing your interactive 3D interior...</p>
-      <p id="error"></p>
+  <div id="scene"></div>
+
+  <div class="panel">
+    <p class="eyebrow">INTERIOR COLLECTION · 001</p>
+    <h1>Sage &amp; Cream</h1>
+    <p class="subtitle">
+      A dimension-aware architectural room concept inspired by
+      your photograph.
+    </p>
+
+    <div class="dimensions">
+      <div class="dimension">
+        <strong>10 ft</strong>
+        <span>WIDTH</span>
+      </div>
+      <div class="dimension">
+        <strong>12 ft</strong>
+        <span>DEPTH</span>
+      </div>
+      <div class="dimension">
+        <strong>10 ft</strong>
+        <span>HEIGHT</span>
+      </div>
+    </div>
+
+    <button class="primary" id="walkBtn">START WALKTHROUGH</button>
+    <button class="secondary" id="resetBtn">RESET CAMERA</button>
+    <button class="secondary" id="ceilingBtn">HIDE CEILING</button>
+
+    <div class="swatches">
+      <button class="swatch active" data-color="sage"
+        title="Sage green"
+        style="background:#a7b5a0;width:27px;height:27px;padding:0"></button>
+
+      <button class="swatch" data-color="cream"
+        title="Warm cream"
+        style="background:#e8dcc5;width:27px;height:27px;padding:0"></button>
+
+      <button class="swatch" data-color="blue"
+        title="Dusty blue"
+        style="background:#a9bbc6;width:27px;height:27px;padding:0"></button>
+
+      <button class="swatch" data-color="pink"
+        title="Muted blush"
+        style="background:#d9b9b0;width:27px;height:27px;padding:0"></button>
+
+      <span class="swatch-label">WALL PALETTE</span>
     </div>
   </div>
 
-  <aside id="panel">
-    <div class="eyebrow">Interior concept · 01</div>
-    <h1>Sage & Cream</h1>
-    <p>
-      A calm, contemporary room with sage-green walls,
-      warm cream finishes, a wooden TV console and soft lighting.
-    </p>
-    <p><strong>Concept dimensions</strong><br>
-      Width: 10 ft · Depth: 12 ft · Height: 10 ft
-    </p>
+  <div id="status">3D ROOM · LOADING</div>
 
-    <div class="buttons">
-      <button id="entrance">Entrance view</button>
-      <button id="front">TV wall</button>
-      <button id="top">Top view</button>
-      <button id="reset">Reset camera</button>
-    </div>
-    <div id="status">Loading 3D engine...</div>
-  </aside>
-
-  <div id="help">
-    <strong>Navigation</strong><br>
-    Drag: Look around<br>
-    Scroll or pinch: Zoom<br>
-    Right-drag: Pan
+  <div class="help">
+    <strong>W / A / S / D</strong> Move &nbsp; · &nbsp;
+    <strong>Mouse</strong> Look around<br>
+    <strong>ESC</strong> Release mouse &nbsp; · &nbsp;
+    Arrow keys also work
   </div>
+
+  <div id="error"></div>
 
   <script type="module">
-    const loading = document.getElementById("loading");
-    const loadingText = document.getElementById("loadingText");
-    const errorBox = document.getElementById("error");
-    const status = document.getElementById("status");
+    import * as THREE from 'three';
 
-    function showError(message) {
-      loadingText.textContent = "The 3D scene could not start.";
-      errorBox.style.display = "block";
-      errorBox.textContent = message;
-      status.textContent = "3D engine failed to load.";
-    }
+    const container = document.getElementById('scene');
+    const status = document.getElementById('status');
+    const errorBox = document.getElementById('error');
 
     try {
-      // Explicit CDN URLs fix the unresolved "three" module error.
-      const THREE_URL =
-        "https://unpkg.com/three@0.160.0/build/three.module.js";
-      const CONTROLS_URL =
-        "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+      // All dimensions are expressed in feet for easy adjustment.
+      const ROOM = {
+        width: 10,
+        depth: 12,
+        height: 10,
+        doorWidth: 3,
+        doorHeight: 7
+      };
 
-      const THREE = await import(THREE_URL);
-      const { OrbitControls } = await import(CONTROLS_URL);
+      const HALF_W = ROOM.width / 2;
+      const HALF_D = ROOM.depth / 2;
+      const WALL = 0.18;
 
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color("#e9e7df");
+      let scene, camera, renderer;
+      let ceiling, door, doorGroup;
+      let walking = false;
+      let yaw = 0;
+      let pitch = 0;
+      let moveForward = false;
+      let moveBackward = false;
+      let moveLeft = false;
+      let moveRight = false;
+      let lastTime = 0;
 
-      // One unit represents one foot in this conceptual model.
-      const camera = new THREE.PerspectiveCamera(
-        55, innerWidth / innerHeight, 0.1, 100
-      );
-      camera.position.set(8, 7, 12);
+      const wallMaterials = [];
+      const keys = {};
+      const rayDirection = new THREE.Vector3();
 
-      const renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        powerPreference: "high-performance"
-      });
+      init();
+      animate();
 
-      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
-      renderer.setSize(innerWidth, innerHeight);
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.1;
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      document.body.appendChild(renderer.domElement);
+      function init() {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color('#e9e6de');
 
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.target.set(0, 4, 0);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.07;
-      controls.minDistance = 2.5;
-      controls.maxDistance = 24;
-      controls.maxPolarAngle = Math.PI * 0.49;
-      controls.update();
-
-      const mat = (color, roughness = 0.8, metalness = 0) =>
-        new THREE.MeshStandardMaterial({ color, roughness, metalness });
-
-      const sage = mat("#a9b9a1");
-      const cream = mat("#f2eadc");
-      const wood = mat("#805d42", 0.65);
-      const darkWood = mat("#44382e");
-      const dark = mat("#222927", 0.35);
-      const marble = mat("#f0ede6", 0.3);
-      const grout = mat("#d3cfc5");
-
-      function block(name, size, pos, material, cast = true) {
-        const mesh = new THREE.Mesh(
-          new THREE.BoxGeometry(...size), material
+        camera = new THREE.PerspectiveCamera(
+          70,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          100
         );
-        mesh.name = name;
-        mesh.position.set(...pos);
-        mesh.castShadow = cast;
+
+        // Start near the entrance, looking towards the rear wall.
+        camera.position.set(0, 5.3, 4.7);
+        yaw = 0;
+        pitch = 0;
+        updateCameraRotation();
+
+        renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          powerPreference: 'high-performance'
+        });
+
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.1;
+
+        container.appendChild(renderer.domElement);
+
+        // Lighting.
+        scene.add(new THREE.HemisphereLight('#fff8e9', '#777d6b', 2.0));
+
+        const sunlight = new THREE.DirectionalLight('#fff1d7', 2.0);
+        sunlight.position.set(-3, 9, 5);
+        sunlight.castShadow = true;
+        sunlight.shadow.mapSize.set(1024, 1024);
+        scene.add(sunlight);
+
+        // Floor.
+        const floor = new THREE.Mesh(
+          new THREE.PlaneGeometry(ROOM.width, ROOM.depth),
+          new THREE.MeshStandardMaterial({
+            color: '#e7e1d5',
+            roughness: 0.75
+          })
+        );
+
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = 0;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        // Subtle floor tile lines.
+        const groutMaterial = new THREE.LineBasicMaterial({
+          color: '#c9c2b4',
+          transparent: true,
+          opacity: 0.48
+        });
+
+        const grout = new THREE.Group();
+
+        for (let x = -HALF_W; x <= HALF_W; x += 2) {
+          const points = [
+            new THREE.Vector3(x, 0.012, -HALF_D),
+            new THREE.Vector3(x, 0.012, HALF_D)
+          ];
+
+          grout.add(new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(points),
+            groutMaterial
+          ));
+        }
+
+        for (let z = -HALF_D; z <= HALF_D; z += 2) {
+          const points = [
+            new THREE.Vector3(-HALF_W, 0.012, z),
+            new THREE.Vector3(HALF_W, 0.012, z)
+          ];
+
+          grout.add(new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(points),
+            groutMaterial
+          ));
+        }
+
+        scene.add(grout);
+
+        // Rear wall.
+        const rearWall = makeWall(
+          ROOM.width, ROOM.height, WALL, '#a7b5a0'
+        );
+        rearWall.position.set(0, ROOM.height / 2, -HALF_D);
+        scene.add(rearWall);
+
+        // Right wall.
+        const rightWall = makeWall(
+          WALL, ROOM.height, ROOM.depth, '#a7b5a0'
+        );
+        rightWall.position.set(HALF_W, ROOM.height / 2, 0);
+        scene.add(rightWall);
+
+        // Left wall, split to preserve a 3 ft doorway near the entrance.
+        // The door opening is an assumed position based on the photo.
+        const doorCenterZ = 3.0;
+        const doorStartZ = doorCenterZ - ROOM.doorWidth / 2;
+        const doorEndZ = doorCenterZ + ROOM.doorWidth / 2;
+
+        const leftFrontLength = HALF_D - doorEndZ;
+        const leftRearLength = doorStartZ + HALF_D;
+
+        if (leftFrontLength > 0) {
+          const leftFront = makeWall(
+            WALL, ROOM.height, leftFrontLength, '#a7b5a0'
+          );
+          leftFront.position.set(
+            -HALF_W,
+            ROOM.height / 2,
+            (doorEndZ + HALF_D) / 2
+          );
+          scene.add(leftFront);
+        }
+
+        if (leftRearLength > 0) {
+          const leftRear = makeWall(
+            WALL, ROOM.height, leftRearLength, '#a7b5a0'
+          );
+          leftRear.position.set(
+            -HALF_W,
+            ROOM.height / 2,
+            (doorStartZ - HALF_D) / 2
+          );
+          scene.add(leftRear);
+        }
+
+        // Wall above the door opening.
+        const overDoor = makeWall(
+          WALL,
+          ROOM.height - ROOM.doorHeight,
+          ROOM.doorWidth,
+          '#a7b5a0'
+        );
+
+        overDoor.position.set(
+          -HALF_W,
+          ROOM.doorHeight + (ROOM.height - ROOM.doorHeight) / 2,
+          doorCenterZ
+        );
+        scene.add(overDoor);
+
+        // Door frame.
+        const frameMaterial = new THREE.MeshStandardMaterial({
+          color: '#d5c5a7',
+          roughness: 0.55
+        });
+
+        addBox(
+          WALL + 0.06,
+          ROOM.doorHeight,
+          0.12,
+          -HALF_W,
+          ROOM.doorHeight / 2,
+          doorStartZ,
+          frameMaterial
+        );
+
+        addBox(
+          WALL + 0.06,
+          ROOM.doorHeight,
+          0.12,
+          -HALF_W,
+          ROOM.doorHeight / 2,
+          doorEndZ,
+          frameMaterial
+        );
+
+        // Door slab, kept near the existing doorway.
+        // It is deliberately a visual element, not a collision object.
+        const doorMaterial = new THREE.MeshStandardMaterial({
+          color: '#74533c',
+          roughness: 0.7
+        });
+
+        doorGroup = new THREE.Group();
+        doorGroup.position.set(-HALF_W + 0.07, 0, doorStartZ);
+
+        door = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12, ROOM.doorHeight, ROOM.doorWidth),
+          doorMaterial
+        );
+
+        door.position.set(0, ROOM.doorHeight / 2, ROOM.doorWidth / 2);
+        door.castShadow = true;
+        doorGroup.add(door);
+        scene.add(doorGroup);
+
+        // Simple raised door panels.
+        const panelMaterial = new THREE.MeshStandardMaterial({
+          color: '#85664d',
+          roughness: 0.65
+        });
+
+        for (let y of [1.1, 3.1, 5.2]) {
+          const panel = new THREE.Mesh(
+            new THREE.BoxGeometry(0.035, 1.2, 2.15),
+            panelMaterial
+          );
+
+          panel.position.set(-0.075, y, ROOM.doorWidth / 2);
+          doorGroup.add(panel);
+        }
+
+        // Minimal cupboard on the rear wall.
+        // It stays low and narrow so it does not block the entrance.
+        const cupboard = new THREE.Group();
+
+        const cabinetBody = new THREE.MeshStandardMaterial({
+          color: '#ded7c8',
+          roughness: 0.62
+        });
+
+        const cabinetFront = new THREE.MeshStandardMaterial({
+          color: '#eee8dc',
+          roughness: 0.6
+        });
+
+        const cabinetWidth = 4.6;
+        const cabinetHeight = 2.25;
+        const cabinetDepth = 0.65;
+        const cabinetZ = -HALF_D + cabinetDepth / 2 + 0.05;
+
+        addBox(
+          cabinetWidth,
+          cabinetHeight,
+          cabinetDepth,
+          0,
+          cabinetHeight / 2,
+          cabinetZ,
+          cabinetBody,
+          cupboard
+        );
+
+        // Three minimalist cupboard doors.
+        for (let i = 0; i < 3; i++) {
+          const x = -cabinetWidth / 2 +
+                    cabinetWidth / 6 +
+                    i * cabinetWidth / 3;
+
+          addBox(
+            cabinetWidth / 3 - 0.035,
+            cabinetHeight - 0.12,
+            0.025,
+            x,
+            cabinetHeight / 2,
+            cabinetZ + cabinetDepth / 2 + 0.018,
+            cabinetFront,
+            cupboard
+          );
+
+          // Small discreet vertical handles.
+          addBox(
+            0.035, 0.28, 0.035,
+            x + cabinetWidth / 6 - 0.1,
+            cabinetHeight / 2,
+            cabinetZ + cabinetDepth / 2 + 0.045,
+            new THREE.MeshStandardMaterial({ color: '#8a8b7b' }),
+            cupboard
+          );
+        }
+
+        // Cupboard top.
+        addBox(
+          cabinetWidth + 0.08,
+          0.07,
+          cabinetDepth + 0.08,
+          0,
+          cabinetHeight + 0.025,
+          cabinetZ,
+          new THREE.MeshStandardMaterial({ color: '#c9c3b5' }),
+          cupboard
+        );
+
+        scene.add(cupboard);
+
+        // Decorative, restrained vertical wall trim.
+        const trimMaterial = new THREE.MeshStandardMaterial({
+          color: '#e6dfd1',
+          roughness: 0.7
+        });
+
+        for (const x of [-4.5, 4.5]) {
+          addBox(
+            0.045, 0.16, 0.05,
+            x, 0.08, -HALF_D + 0.12,
+            trimMaterial
+          );
+        }
+
+        // Ceiling, which can be toggled for viewing the room.
+        ceiling = new THREE.Mesh(
+          new THREE.PlaneGeometry(ROOM.width, ROOM.depth),
+          new THREE.MeshStandardMaterial({
+            color: '#f7f3e9',
+            roughness: 0.85,
+            side: THREE.DoubleSide
+          })
+        );
+
+        ceiling.rotation.x = Math.PI / 2;
+        ceiling.position.y = ROOM.height;
+        scene.add(ceiling);
+
+        // Recessed ceiling lights.
+        const lightPositions = [
+          [-3.2, 3.8],
+          [3.2, 3.8],
+          [-3.2, -3.8],
+          [3.2, -3.8]
+        ];
+
+        lightPositions.forEach(([x, z]) => {
+          const light = new THREE.Mesh(
+            new THREE.BoxGeometry(0.85, 0.06, 0.45),
+            new THREE.MeshStandardMaterial({
+              color: '#fffaf0',
+              emissive: '#fff0c7',
+              emissiveIntensity: 1.4
+            })
+          );
+
+          light.position.set(x, ROOM.height - 0.04, z);
+          scene.add(light);
+
+          const pointLight = new THREE.PointLight(
+            '#fff0d6', 12, 7, 2
+          );
+
+          pointLight.position.set(x, ROOM.height - 0.25, z);
+          scene.add(pointLight);
+        });
+
+        // Keep a subtle ceiling border.
+        const borderMat = new THREE.MeshStandardMaterial({
+          color: '#d3cbbd',
+          roughness: 0.7
+        });
+
+        addBox(ROOM.width, 0.08, 0.08,
+          0, ROOM.height - 0.05, -HALF_D + 0.04, borderMat);
+
+        addBox(ROOM.width, 0.08, 0.08,
+          0, ROOM.height - 0.05, HALF_D - 0.04, borderMat);
+
+        addBox(0.08, 0.08, ROOM.depth,
+          -HALF_W + 0.04, ROOM.height - 0.05, 0, borderMat);
+
+        addBox(0.08, 0.08, ROOM.depth,
+          HALF_W - 0.04, ROOM.height - 0.05, 0, borderMat);
+
+        // Events.
+        window.addEventListener('resize', onResize);
+
+        document.getElementById('walkBtn').addEventListener(
+          'click',
+          startWalkthrough
+        );
+
+        document.getElementById('resetBtn').addEventListener(
+          'click',
+          resetCamera
+        );
+
+        document.getElementById('ceilingBtn').addEventListener(
+          'click',
+          toggleCeiling
+        );
+
+        document.querySelectorAll('.swatch').forEach(button => {
+          button.addEventListener('click', () => {
+            changePalette(button.dataset.color);
+
+            document.querySelectorAll('.swatch').forEach(b => {
+              b.classList.remove('active');
+            });
+
+            button.classList.add('active');
+          });
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+          walking = document.pointerLockElement === renderer.domElement;
+          document.getElementById('walkBtn').textContent =
+            walking ? 'WALKTHROUGH ACTIVE · ESC TO EXIT' :
+                      'START WALKTHROUGH';
+
+          status.textContent = walking ?
+            'WALKTHROUGH ACTIVE' : '3D ROOM · READY';
+        });
+
+        document.addEventListener('mousemove', event => {
+          if (!walking) return;
+
+          yaw -= event.movementX * 0.0025;
+          pitch -= event.movementY * 0.0025;
+
+          pitch = THREE.MathUtils.clamp(
+            pitch, -1.25, 1.25
+          );
+
+          updateCameraRotation();
+        });
+
+        document.addEventListener('keydown', event => {
+          keys[event.code] = true;
+
+          if ([
+            'ArrowUp', 'ArrowDown',
+            'ArrowLeft', 'ArrowRight',
+            'Space'
+          ].includes(event.code)) {
+            event.preventDefault();
+          }
+
+          if (event.code === 'Escape') {
+            walking = false;
+          }
+        });
+
+        document.addEventListener('keyup', event => {
+          keys[event.code] = false;
+        });
+
+        // Touch controls: drag to look; movement uses arrow/WASD keys
+        // where the device keyboard supports them.
+        let touchX = null;
+        let touchY = null;
+
+        renderer.domElement.addEventListener('touchstart', event => {
+          if (event.touches.length === 1) {
+            touchX = event.touches[0].clientX;
+            touchY = event.touches[0].clientY;
+          }
+        }, { passive: true });
+
+        renderer.domElement.addEventListener('touchmove', event => {
+          if (event.touches.length !== 1 ||
+              touchX === null || touchY === null) return;
+
+          const touch = event.touches[0];
+          const dx = touch.clientX - touchX;
+          const dy = touch.clientY - touchY;
+
+          yaw -= dx * 0.004;
+          pitch = THREE.MathUtils.clamp(
+            pitch - dy * 0.004, -1.25, 1.25
+          );
+
+          touchX = touch.clientX;
+          touchY = touch.clientY;
+
+          updateCameraRotation();
+        }, { passive: true });
+
+        renderer.domElement.addEventListener('touchend', () => {
+          touchX = null;
+          touchY = null;
+        });
+
+        status.textContent = '3D ROOM · READY';
+      }
+
+      function makeWall(width, height, depth, color) {
+        const material = new THREE.MeshStandardMaterial({
+          color,
+          roughness: 0.9,
+          side: THREE.DoubleSide
+        });
+
+        wallMaterials.push(material);
+
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(width, height, depth),
+          material
+        );
+
+        mesh.castShadow = true;
         mesh.receiveShadow = true;
-        scene.add(mesh);
+
         return mesh;
       }
 
-      // Room shell: 10 ft wide × 12 ft deep × 10 ft high.
-      // Back wall is at z = -6; entrance is at z = +6.
-      block("Marble floor", [10, .15, 12], [0, -.075, 0], marble, false);
-      block("Back wall", [10, 10, .15], [0, 5, -6], cream, false);
-      block("Left wall", [.15, 10, 12], [-5, 5, 0], sage, false);
-      block("Right wall", [.15, 10, 12], [5, 5, 0], sage, false);
-      block("Ceiling", [10, .15, 12], [0, 10, 0], cream, false);
+      function addBox(
+        width, height, depth, x, y, z, material, parent = scene
+      ) {
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(width, height, depth),
+          material
+        );
 
-      // Ceiling trim.
-      block("Ceiling trim front", [10, .12, .15],
-        [0, 9.87, 5.75], darkWood);
-      block("Ceiling trim back", [10, .12, .15],
-        [0, 9.87, -5.75], darkWood);
-      block("Ceiling trim left", [.12, .12, 11.5],
-        [-4.94, 9.87, 0], darkWood);
-      block("Ceiling trim right", [.12, .12, 11.5],
-        [4.94, 9.87, 0], darkWood);
+        mesh.position.set(x, y, z);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        parent.add(mesh);
 
-      // Door approximation: 3 ft wide × 7 ft high.
-      // Assumption: door is on the left wall near the entrance.
-      block("Door", [.1, 7, 3], [-4.86, 3.5, 3.5], wood);
-      block("Door frame 1", [.18, 7.2, .15],
-        [-4.74, 3.6, 1.94], darkWood);
-      block("Door frame 2", [.18, 7.2, .15],
-        [-4.74, 3.6, 5.06], darkWood);
-      block("Door frame top", [.18, .16, 3.25],
-        [-4.74, 7.2, 3.5], darkWood);
-      block("Door handle", [.1, .12, .12],
-        [-4.72, 3.2, 2.55], mat("#c7a76b", .25, .6));
-
-      // TV feature wall.
-      block("Feature panel", [6.2, 5.3, .12],
-        [0, 5.2, -5.82], sage);
-      block("TV border", [4.35, 2.6, .12],
-        [0, 5.5, -5.71], darkWood);
-      block("TV screen", [4.1, 2.35, .04],
-        [0, 5.5, -5.62], dark);
-
-      // Subtle screen sheen.
-      block("TV screen reflection", [3.85, .018, .01],
-        [0, 6.53, -5.59],
-        new THREE.MeshBasicMaterial({ color: "#46544d" }), false);
-
-      // Floating console with clear floor space.
-      block("Floating wooden console", [5.1, .38, .85],
-        [0, 1.25, -5.2], wood);
-      block("Console top", [5.25, .08, .92],
-        [0, 1.49, -5.17], darkWood);
-
-      // Minimal side shelves; no front cupboard blocking entry.
-      block("Left accent shelf", [.95, .12, .45],
-        [-4.05, 5.1, -2.6], wood);
-      block("Right accent shelf", [.95, .12, .45],
-        [4.05, 5.1, -2.6], wood);
-
-      // Recessed-looking ceiling light fixtures.
-      const lightMat = new THREE.MeshStandardMaterial({
-        color: "#fff4d8",
-        emissive: "#ffe8b0",
-        emissiveIntensity: 1.5
-      });
-
-      for (const x of [-3.6, 3.6]) {
-        block("Ceiling fixture", [.85, .06, .5],
-          [x, 9.83, 1.6], lightMat, false);
-
-        const point = new THREE.PointLight("#fff0d7", 70, 17);
-        point.position.set(x, 9.3, 1.6);
-        scene.add(point);
+        return mesh;
       }
 
-      scene.add(new THREE.HemisphereLight("#fff8e9", "#a4a99b", 2));
-
-      const sunlight = new THREE.DirectionalLight("#fff4df", 2);
-      sunlight.position.set(-4, 9, 5);
-      sunlight.castShadow = true;
-      sunlight.shadow.mapSize.set(1024, 1024);
-      scene.add(sunlight);
-
-      // Marble tile grid.
-      for (let x = -4; x <= 4; x += 2) {
-        block("Tile joint", [.018, .008, 12],
-          [x, .006, 0], grout, false);
-      }
-      for (let z = -5; z <= 5; z += 2) {
-        block("Tile joint", [10, .008, .018],
-          [0, .006, z], grout, false);
+      function updateCameraRotation() {
+        camera.rotation.order = 'YXZ';
+        camera.rotation.y = yaw;
+        camera.rotation.x = pitch;
       }
 
-      // Camera navigation presets.
-      function moveCamera(position, target) {
-        camera.position.set(...position);
-        controls.target.set(...target);
-        controls.update();
+      function startWalkthrough() {
+        renderer.domElement.requestPointerLock();
       }
 
-      document.getElementById("entrance").onclick = () =>
-        moveCamera([8, 6, 10], [0, 4, 0]);
+      function resetCamera() {
+        camera.position.set(0, 5.3, 4.7);
+        yaw = 0;
+        pitch = 0;
+        updateCameraRotation();
+      }
 
-      document.getElementById("front").onclick = () =>
-        moveCamera([0, 5, 4], [0, 4, -5]);
+      function toggleCeiling() {
+        ceiling.visible = !ceiling.visible;
 
-      document.getElementById("top").onclick = () =>
-        moveCamera([0, 17, .1], [0, 0, 0]);
+        document.getElementById('ceilingBtn').textContent =
+          ceiling.visible ? 'HIDE CEILING' : 'SHOW CEILING';
+      }
 
-      document.getElementById("reset").onclick = () =>
-        moveCamera([8, 7, 12], [0, 4, 0]);
+      function changePalette(palette) {
+        const colors = {
+          sage: '#a7b5a0',
+          cream: '#e8dcc5',
+          blue: '#a9bbc6',
+          pink: '#d9b9b0'
+        };
 
-      window.addEventListener("resize", () => {
-        camera.aspect = innerWidth / innerHeight;
+        const color = colors[palette] || colors.sage;
+
+        wallMaterials.forEach(material => {
+          material.color.set(color);
+        });
+      }
+
+      function onResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
-        renderer.setSize(innerWidth, innerHeight);
-      });
 
-      loading.classList.add("hidden");
-      status.textContent = "3D room ready · Drag to explore";
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      }
 
-      function animate() {
+      function animate(time = 0) {
         requestAnimationFrame(animate);
-        controls.update();
+
+        const delta = Math.min((time - lastTime) / 1000, 0.05);
+        lastTime = time;
+
+        const forward = (
+          keys['KeyW'] || keys['ArrowUp']
+        ) ? 1 : 0;
+
+        const backward = (
+          keys['KeyS'] || keys['ArrowDown']
+        ) ? 1 : 0;
+
+        const left = (
+          keys['KeyA'] || keys['ArrowLeft']
+        ) ? 1 : 0;
+
+        const right = (
+          keys['KeyD'] || keys['ArrowRight']
+        ) ? 1 : 0;
+
+        const moveSpeed = 4.0 * delta;
+
+        // Move relative to the direction the camera faces.
+        rayDirection.set(
+          -Math.sin(yaw),
+          0,
+          -Math.cos(yaw)
+        );
+
+        camera.position.x +=
+          rayDirection.x * (forward - backward) * moveSpeed;
+
+        camera.position.z +=
+          rayDirection.z * (forward - backward) * moveSpeed;
+
+        camera.position.x +=
+          -Math.cos(yaw) * (right - left) * moveSpeed;
+
+        camera.position.z +=
+          Math.sin(yaw) * (right - left) * moveSpeed;
+
+        // Keep the camera within the room.
+        camera.position.x = THREE.MathUtils.clamp(
+          camera.position.x, -HALF_W + 0.45, HALF_W - 0.45
+        );
+
+        camera.position.z = THREE.MathUtils.clamp(
+          camera.position.z, -HALF_D + 0.45, HALF_D - 0.45
+        );
+
+        camera.position.y = 5.3;
+
         renderer.render(scene, camera);
       }
-      animate();
 
     } catch (error) {
-      console.error("3D room failed:", error);
-      showError(
-        "Check your internet connection and reload. " +
-        "If the problem continues, open the browser Console " +
-        "and inspect the red error message."
-      );
+      console.error(error);
+
+      errorBox.style.display = 'block';
+      errorBox.textContent =
+        'The 3D room could not load. Check your internet connection ' +
+        'and the browser console. Details: ' + error.message;
+
+      status.textContent = '3D ROOM · ERROR';
     }
   </script>
 </body>
