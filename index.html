@@ -1,153 +1,393 @@
-<!doctype html>
+
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sage & Cream — Interactive 3D Room</title>
-<style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#e9e4d8;font-family:Arial,sans-serif}
-  #view{width:100%;height:100%;display:block}
-  .panel{position:fixed;z-index:5;background:rgba(20,34,28,.88);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:12px 14px;backdrop-filter:blur(8px)}
-  #info{left:14px;top:14px;max-width:270px;font-size:13px;line-height:1.45}
-  #info strong{font-size:15px;display:block;margin-bottom:5px}
-  #controls{right:14px;top:14px;display:flex;flex-direction:column;gap:8px}
-  button{border:0;border-radius:8px;padding:9px 11px;background:#d9c7a2;color:#20251f;font-weight:700;cursor:pointer}
-  button:hover{background:#f1e5cd}
-  #hint{left:14px;bottom:14px;font-size:12px;line-height:1.5;max-width:310px}
-  #status{right:14px;bottom:14px;font-size:12px}
-  @media(max-width:600px){#info{max-width:205px;font-size:11px}#controls{top:auto;bottom:90px}button{padding:8px;font-size:11px}#hint{max-width:230px}}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#263c32">
+  <title>Sage & Cream | Interactive 3D Interior</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background: #eee9df;
+      color: #fff;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #panel {
+      position: fixed;
+      z-index: 10;
+      top: 16px;
+      left: 16px;
+      width: min(310px, calc(100vw - 32px));
+      padding: 20px;
+      border: 1px solid #ffffff30;
+      border-radius: 18px;
+      background: rgba(35, 55, 45, .94);
+      box-shadow: 0 10px 35px #0002;
+      backdrop-filter: blur(12px);
+    }
+
+    .eyebrow {
+      color: #d5c8a6;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 8px 0;
+      font-family: Georgia, serif;
+      font-size: 27px;
+      font-weight: 400;
+    }
+
+    #panel p {
+      color: #e2e6dc;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    button {
+      padding: 11px 8px;
+      border: 1px solid #ffffff35;
+      border-radius: 8px;
+      background: #e5e9dc;
+      color: #293d31;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #fff;
+    }
+
+    #status {
+      margin-top: 12px;
+      color: #d6d9c9;
+      font-size: 11px;
+    }
+
+    #loading {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: #e9e4d9;
+      color: #263c32;
+      text-align: center;
+    }
+
+    #loading.hidden {
+      display: none;
+    }
+
+    #loading h2 {
+      font-family: Georgia, serif;
+      font-size: 27px;
+      font-weight: 400;
+    }
+
+    #loading p {
+      max-width: 360px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    #error {
+      display: none;
+      color: #9e3328;
+    }
+
+    #help {
+      position: fixed;
+      right: 15px;
+      bottom: 15px;
+      z-index: 10;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: #ffffffdf;
+      color: #263c32;
+      font-size: 11px;
+      line-height: 1.7;
+      box-shadow: 0 3px 15px #0001;
+    }
+
+    @media (max-width: 500px) {
+      #panel { padding: 14px; }
+      h1 { font-size: 22px; }
+      #panel p { margin: 7px 0; }
+      #help { max-width: 175px; }
+    }
+  </style>
 </head>
+
 <body>
-<canvas id="view"></canvas>
-<div id="info" class="panel"><strong>Sage & Cream Room</strong>Interactive 3D concept<br>Room: 10 ft × 12 ft × 10 ft<br>Door: 3 ft wide<br><span style="color:#e9d6ac">Concept layout — verify measurements before building.</span></div>
-<div id="controls" class="panel">
-  <button id="entry">View from entrance</button>
-  <button id="front">View TV wall</button>
-  <button id="top">Top view</button>
-  <button id="reset">Reset view</button>
-</div>
-<div id="hint" class="panel">Drag to look around · Scroll/pinch to zoom · Right-drag to pan. Use the on-screen views to jump around the room.</div>
-<div id="status" class="panel">Loading 3D scene…</div>
-<script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+  <div id="loading">
+    <div>
+      <h2>Sage & Cream</h2>
+      <p id="loadingText">Preparing your interactive 3D interior...</p>
+      <p id="error"></p>
+    </div>
+  </div>
 
-const canvas=document.querySelector('#view');
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setSize(innerWidth,innerHeight);
-renderer.shadowMap.enabled=true;
-renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-renderer.outputColorSpace=THREE.SRGBColorSpace;
-renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.15;
+  <aside id="panel">
+    <div class="eyebrow">Interior concept · 01</div>
+    <h1>Sage & Cream</h1>
+    <p>
+      A calm, contemporary room with sage-green walls,
+      warm cream finishes, a wooden TV console and soft lighting.
+    </p>
+    <p><strong>Concept dimensions</strong><br>
+      Width: 10 ft · Depth: 12 ft · Height: 10 ft
+    </p>
 
-const scene=new THREE.Scene();
-scene.background=new THREE.Color('#dcded4');
-scene.fog=new THREE.Fog('#dcded4',22,45);
-const camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,.1,100);
-camera.position.set(-5.2,5.2,10.2);
-const controls=new OrbitControls(camera,renderer.domElement);
-controls.target.set(0,1.6,0); controls.enableDamping=true; controls.dampingFactor=.07;
-controls.minDistance=2.4; controls.maxDistance=18; controls.maxPolarAngle=Math.PI*.485;
+    <div class="buttons">
+      <button id="entrance">Entrance view</button>
+      <button id="front">TV wall</button>
+      <button id="top">Top view</button>
+      <button id="reset">Reset camera</button>
+    </div>
+    <div id="status">Loading 3D engine...</div>
+  </aside>
 
-scene.add(new THREE.HemisphereLight('#fff6df','#6b7465',2.0));
-const key=new THREE.DirectionalLight('#fff0d0',3.0); key.position.set(-4,9,6); key.castShadow=true; key.shadow.mapSize.set(2048,2048); scene.add(key);
-const fill=new THREE.PointLight('#ffd59b',55,15); fill.position.set(0,7,-4.5); scene.add(fill);
+  <div id="help">
+    <strong>Navigation</strong><br>
+    Drag: Look around<br>
+    Scroll or pinch: Zoom<br>
+    Right-drag: Pan
+  </div>
 
-const mat=(color,roughness=.75,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
-const sage=mat('#a5b29a'), sageDark=mat('#66785f'), cream=mat('#f0e5d1'), trim=mat('#e5d6bd'), walnut=mat('#765036'), wood=mat('#9b7049'), black=mat('#151819',.24,.2), gold=mat('#c4a36a',.35,.55), leaf=mat('#4c7049'), potmat=mat('#ded3bd'), floorMat=mat('#e7dfd1',.35);
-function box(w,h,d,material,x,y,z,cast=true){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);m.position.set(x,y,z);m.castShadow=cast;m.receiveShadow=true;scene.add(m);return m}
-function cylinder(rt,rb,h,material,x,y,z){const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,20),material);m.position.set(x,y,z);m.castShadow=true;scene.add(m);return m}
-function sphere(r,material,x,y,z,sx=1,sy=1,sz=1){const m=new THREE.Mesh(new THREE.SphereGeometry(r,16,12),material);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=true;scene.add(m);return m}
+  <script type="module">
+    const loading = document.getElementById("loading");
+    const loadingText = document.getElementById("loadingText");
+    const errorBox = document.getElementById("error");
+    const status = document.getElementById("status");
 
-// Floor and perimeter. Front/TV wall is z=-6; entrance is z=+6.
-box(10,.16,12,floorMat,0,-.08,0,false);
-const grout=mat('#cfc5b4');
-for(let x=-4.5;x<=4.51;x+=1.5) box(.012,.006,12,grout,x,.006,0,false);
-for(let z=-5.25;z<=5.26;z+=1.5) box(10,.006,.012,grout,0,.007,z,false);
-// Side walls; left wall includes a 3-ft door opening near the entry.
-box(.16,10,12,sage,-5,5,0);
-box(.16,10,12,sage,5,5,0);
-// Back wall and TV feature wall
-box(10,10,.16,cream,0,5,-6);
-// Front opening at entry side, with short side returns to keep the view open.
-box(.16,10,12,cream,0,5,6);
-// Ceiling kept visible but toggle-able for inspecting the room
-const ceiling=box(10,.18,12,cream,0,10,0,false);
-ceiling.material=cream.clone(); ceiling.material.transparent=true; ceiling.material.opacity=.18;
+    function showError(message) {
+      loadingText.textContent = "The 3D scene could not start.";
+      errorBox.style.display = "block";
+      errorBox.textContent = message;
+      status.textContent = "3D engine failed to load.";
+    }
 
-// Door on left wall, near the entrance end; a visible open door panel demonstrates swing clearance.
-const door=box(.08,7,3,walnut,-4.86,3.5,3.7);
-door.rotation.y=-.25;
-box(.12,7.25,3.25,wood,-4.9,3.62,3.7).material=wood;
-box(.08,6.9,2.8,walnut,-4.77,3.5,3.7);
-box(.12,.13,.13,gold,-4.65,3.5,4.85);
-box(.1,.12,.12,black,-4.62,3.5,4.85);
-// Door frame
-box(.24,.18,3.3,walnut,-4.86,7.15,3.7);
-box(.24,7.15,.18,walnut,-4.86,3.57,2.05);
-box(.24,7.15,.18,walnut,-4.86,3.57,5.35);
+    try {
+      // Explicit CDN URLs fix the unresolved "three" module error.
+      const THREE_URL =
+        "https://unpkg.com/three@0.160.0/build/three.module.js";
+      const CONTROLS_URL =
+        "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 
-// Skirting
-box(10,.3,.12,trim,0,.16,-5.89);
-box(.12,.3,12,trim,-4.89,.16,0); box(.12,.3,12,trim,4.89,.16,0);
-// TV feature panels, vertical sage slats and LED columns
-for(let i=0;i<7;i++){box(.12,7.2,.12,sageDark,-3.85+i*.22,4.9,-5.78)}
-for(let i=0;i<7;i++){box(.12,7.2,.12,sageDark,3.05+i*.22,4.9,-5.78)}
-const ledmat=new THREE.MeshStandardMaterial({color:'#ffe0a1',emissive:'#ffba55',emissiveIntensity:2});
-box(.035,7.6,.025,ledmat,-2.2,4.9,-5.68,false); box(.035,7.6,.025,ledmat,2.9,4.9,-5.68,false);
-const tv=box(4.7,2.65,.13,black,0,5.1,-5.58);
-box(4.55,2.5,.025,mat('#080b0c',.18),0,5.1,-5.49,false);
-// floating shelf and soundbar
-box(6.2,.18,.62,wood,0,2.55,-5.38);
-box(1.9,.15,.25,black,0,2.77,-5.22);
-// wall outlets
-for(let i=0;i<3;i++){box(.22,.28,.035,trim,-.6+i*.3,2.1,-5.75);box(.04,.09,.02,black,-.6+i*.3,2.1,-5.72,false)}
-// right-hand narrow display niche, kept flush to the wall so it doesn't obstruct entry
-box(1.0,7.4,.35,walnut,4.25,4.8,-5.52);
-box(.84,7.1,.05,wood,4.25,4.8,-5.31);
-for(let y of [1.8,3.4,5.0,6.6]) box(.88,.07,.32,gold,4.25,y,-5.12);
-function plant(x,z,scale=1){
-  cylinder(.28*scale,.34*scale,.5*scale,potmat,x,.25*scale,z);
-  for(let i=0;i<9;i++){
-    const angle=i*Math.PI*2/9, h=(.65+(i%3)*.18)*scale;
-    const stem=cylinder(.025*scale,.035*scale,h*.65,leaf,x+Math.cos(angle)*.12*scale,.55*scale+h*.2,z+Math.sin(angle)*.12*scale);
-    stem.rotation.z=Math.cos(angle)*.45; stem.rotation.x=Math.sin(angle)*.45;
-    sphere(.14*scale,leaf,x+Math.cos(angle)*.28*scale,.55*scale+h*.65,z+Math.sin(angle)*.28*scale,.65,1.6,.65);
-  }
-  cylinder(.035*scale,.045*scale,.65*scale,walnut,x,.65*scale,z);
-}
-plant(3.65, -4.55,1.1); plant(-3.5,-4.5,.65);
-for(let i=0;i<3;i++){
-  const frame=box(.9,1.35,.08,walnut,3.95-i*.03,6.2-i*.05,-5.65);
-  box(.78,1.2,.025,cream,3.95-i*.03,6.2-i*.05,-5.59,false);
-  // simple botanical motif
-  cylinder(.025,.025,.45,leaf,3.95-i*.03,6.2-i*.05,-5.55).rotation.z=.35;
-}
-// Tray ceiling outline and warm strips
-for(const [w,d,x,z] of [[8,.07,0,-4.6],[8,.07,0,4.6],[.07,9, -3.95,0],[.07,9,3.95,0]]) box(w,.05,d,ledmat,x,9.75,z,false);
-for(const [x,z] of [[-3.8,-4.7],[3.8,-4.7],[-3.8,4.7],[3.8,4.7]]){box(.45,.08,.45,cream,x,9.78,z,false);const light=new THREE.PointLight('#fff1d6',9,5);light.position.set(x,9.1,z);scene.add(light)}
-// Door swing clearance marking (subtle transparent arc-like floor marker)
-const arcPts=[];for(let i=0;i<=32;i++){const a=(Math.PI/2)*(i/32);arcPts.push(new THREE.Vector3(-4.72, .02, 3.7+3*Math.sin(a)))}
-const arcGeo=new THREE.BufferGeometry().setFromPoints(arcPts);const arc=new THREE.Line(arcGeo,new THREE.LineBasicMaterial({color:'#b69b6a',transparent:true,opacity:.8}));scene.add(arc);
+      const THREE = await import(THREE_URL);
+      const { OrbitControls } = await import(CONTROLS_URL);
 
-function setView(name){
- if(name==='entry'){camera.position.set(-3.9,4.2,9.8);controls.target.set(0,2.1,-1.5)}
- else if(name==='front'){camera.position.set(0,4.4,-.2);controls.target.set(0,4.1,-5.7)}
- else if(name==='top'){camera.position.set(0,16,.1);controls.target.set(0,0,0)}
- else {camera.position.set(-5.2,5.2,10.2);controls.target.set(0,1.6,0)}
- controls.update();
-}
-document.querySelector('#entry').onclick=()=>setView('entry');
-document.querySelector('#front').onclick=()=>setView('front');
-document.querySelector('#top').onclick=()=>setView('top');
-document.querySelector('#reset').onclick=()=>setView('reset');
-function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)}
-animate();
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-document.querySelector('#status').textContent='3D scene ready · drag to navigate';
-</script>
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#e9e7df");
+
+      // One unit represents one foot in this conceptual model.
+      const camera = new THREE.PerspectiveCamera(
+        55, innerWidth / innerHeight, 0.1, 100
+      );
+      camera.position.set(8, 7, 12);
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: "high-performance"
+      });
+
+      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      document.body.appendChild(renderer.domElement);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 4, 0);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.07;
+      controls.minDistance = 2.5;
+      controls.maxDistance = 24;
+      controls.maxPolarAngle = Math.PI * 0.49;
+      controls.update();
+
+      const mat = (color, roughness = 0.8, metalness = 0) =>
+        new THREE.MeshStandardMaterial({ color, roughness, metalness });
+
+      const sage = mat("#a9b9a1");
+      const cream = mat("#f2eadc");
+      const wood = mat("#805d42", 0.65);
+      const darkWood = mat("#44382e");
+      const dark = mat("#222927", 0.35);
+      const marble = mat("#f0ede6", 0.3);
+      const grout = mat("#d3cfc5");
+
+      function block(name, size, pos, material, cast = true) {
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(...size), material
+        );
+        mesh.name = name;
+        mesh.position.set(...pos);
+        mesh.castShadow = cast;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+        return mesh;
+      }
+
+      // Room shell: 10 ft wide × 12 ft deep × 10 ft high.
+      // Back wall is at z = -6; entrance is at z = +6.
+      block("Marble floor", [10, .15, 12], [0, -.075, 0], marble, false);
+      block("Back wall", [10, 10, .15], [0, 5, -6], cream, false);
+      block("Left wall", [.15, 10, 12], [-5, 5, 0], sage, false);
+      block("Right wall", [.15, 10, 12], [5, 5, 0], sage, false);
+      block("Ceiling", [10, .15, 12], [0, 10, 0], cream, false);
+
+      // Ceiling trim.
+      block("Ceiling trim front", [10, .12, .15],
+        [0, 9.87, 5.75], darkWood);
+      block("Ceiling trim back", [10, .12, .15],
+        [0, 9.87, -5.75], darkWood);
+      block("Ceiling trim left", [.12, .12, 11.5],
+        [-4.94, 9.87, 0], darkWood);
+      block("Ceiling trim right", [.12, .12, 11.5],
+        [4.94, 9.87, 0], darkWood);
+
+      // Door approximation: 3 ft wide × 7 ft high.
+      // Assumption: door is on the left wall near the entrance.
+      block("Door", [.1, 7, 3], [-4.86, 3.5, 3.5], wood);
+      block("Door frame 1", [.18, 7.2, .15],
+        [-4.74, 3.6, 1.94], darkWood);
+      block("Door frame 2", [.18, 7.2, .15],
+        [-4.74, 3.6, 5.06], darkWood);
+      block("Door frame top", [.18, .16, 3.25],
+        [-4.74, 7.2, 3.5], darkWood);
+      block("Door handle", [.1, .12, .12],
+        [-4.72, 3.2, 2.55], mat("#c7a76b", .25, .6));
+
+      // TV feature wall.
+      block("Feature panel", [6.2, 5.3, .12],
+        [0, 5.2, -5.82], sage);
+      block("TV border", [4.35, 2.6, .12],
+        [0, 5.5, -5.71], darkWood);
+      block("TV screen", [4.1, 2.35, .04],
+        [0, 5.5, -5.62], dark);
+
+      // Subtle screen sheen.
+      block("TV screen reflection", [3.85, .018, .01],
+        [0, 6.53, -5.59],
+        new THREE.MeshBasicMaterial({ color: "#46544d" }), false);
+
+      // Floating console with clear floor space.
+      block("Floating wooden console", [5.1, .38, .85],
+        [0, 1.25, -5.2], wood);
+      block("Console top", [5.25, .08, .92],
+        [0, 1.49, -5.17], darkWood);
+
+      // Minimal side shelves; no front cupboard blocking entry.
+      block("Left accent shelf", [.95, .12, .45],
+        [-4.05, 5.1, -2.6], wood);
+      block("Right accent shelf", [.95, .12, .45],
+        [4.05, 5.1, -2.6], wood);
+
+      // Recessed-looking ceiling light fixtures.
+      const lightMat = new THREE.MeshStandardMaterial({
+        color: "#fff4d8",
+        emissive: "#ffe8b0",
+        emissiveIntensity: 1.5
+      });
+
+      for (const x of [-3.6, 3.6]) {
+        block("Ceiling fixture", [.85, .06, .5],
+          [x, 9.83, 1.6], lightMat, false);
+
+        const point = new THREE.PointLight("#fff0d7", 70, 17);
+        point.position.set(x, 9.3, 1.6);
+        scene.add(point);
+      }
+
+      scene.add(new THREE.HemisphereLight("#fff8e9", "#a4a99b", 2));
+
+      const sunlight = new THREE.DirectionalLight("#fff4df", 2);
+      sunlight.position.set(-4, 9, 5);
+      sunlight.castShadow = true;
+      sunlight.shadow.mapSize.set(1024, 1024);
+      scene.add(sunlight);
+
+      // Marble tile grid.
+      for (let x = -4; x <= 4; x += 2) {
+        block("Tile joint", [.018, .008, 12],
+          [x, .006, 0], grout, false);
+      }
+      for (let z = -5; z <= 5; z += 2) {
+        block("Tile joint", [10, .008, .018],
+          [0, .006, z], grout, false);
+      }
+
+      // Camera navigation presets.
+      function moveCamera(position, target) {
+        camera.position.set(...position);
+        controls.target.set(...target);
+        controls.update();
+      }
+
+      document.getElementById("entrance").onclick = () =>
+        moveCamera([8, 6, 10], [0, 4, 0]);
+
+      document.getElementById("front").onclick = () =>
+        moveCamera([0, 5, 4], [0, 4, -5]);
+
+      document.getElementById("top").onclick = () =>
+        moveCamera([0, 17, .1], [0, 0, 0]);
+
+      document.getElementById("reset").onclick = () =>
+        moveCamera([8, 7, 12], [0, 4, 0]);
+
+      window.addEventListener("resize", () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+
+      loading.classList.add("hidden");
+      status.textContent = "3D room ready · Drag to explore";
+
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+
+    } catch (error) {
+      console.error("3D room failed:", error);
+      showError(
+        "Check your internet connection and reload. " +
+        "If the problem continues, open the browser Console " +
+        "and inspect the red error message."
+      );
+    }
+  </script>
 </body>
 </html>
